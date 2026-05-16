@@ -1,0 +1,37 @@
+# Test binary, built with `go test -c`
+*.test
+
+# Code coverage profiles and other test artifacts
+*.out
+coverage.*
+*.coverprofile
+profile.cov
+
+# Windows executables (cross-build)
+*.exe
+*.exe~
+
+# Go workspace files
+go.work
+go.work.sum
+
+# envball local build output (root binary from `go build ./cmd/envball`)
+/envball
+
+# goreleaser output
+/dist/
+
+# .env replacement is the point of envball; never commit one
+.env
+
+# Editor / IDE
+.vscode/
+.idea/
+
+# OS metadata
+.DS_Store
+Thumbs.db
+
+# Project docs (local-only during early development)
+/CLAUDE.md
+/docs/
