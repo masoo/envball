@@ -18,6 +18,12 @@ go.work.sum
 # envball local build output (root binary from `go build ./cmd/envball`)
 /envball
 
+# Taskfile build output (`task build`, `task build:all`)
+/bin/
+
+# Task cache/checksum artifacts
+/.task/
+
 # goreleaser output
 /dist/
 

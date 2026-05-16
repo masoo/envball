@@ -1,0 +1,160 @@
+version: '3'
+
+# Taskfile for envball. Run `task --list` to see available tasks.
+#
+# Reproducible-build flags (-trimpath, -buildid=, pinned toolchain via
+# go.mod) are mandatory per CLAUDE.md; every build target here applies
+# them so an "oops I forgot the flag" can't slip through.
+
+vars:
+  BIN_DIR: '{{.ROOT_DIR}}/bin'
+  BIN_NAME: envball
+  PKG: ./cmd/envball
+  VERSION:
+    sh: git describe --tags --dirty --always 2>/dev/null || echo dev
+  COMMIT:
+    sh: git rev-parse --short HEAD 2>/dev/null || echo none
+  LDFLAGS: >-
+    -buildid=
+    -X main.version={{.VERSION}}
+    -X main.commit={{.COMMIT}}
+  BUILD_FLAGS: -trimpath -ldflags="{{.LDFLAGS}}"
+
+tasks:
+  default:
+    desc: List available tasks
+    cmds:
+      - task --list-all
+    silent: true
+
+  tidy:
+    desc: Sync go.mod / go.sum
+    cmds:
+      - go mod tidy
+
+  vet:
+    desc: Run go vet
+    cmds:
+      - go vet ./...
+
+  test:
+    desc: Run all tests with -race -count=1
+    cmds:
+      - go test ./... -race -count=1
+
+  test:verbose:
+    desc: Run all tests verbosely
+    cmds:
+      - go test ./... -race -count=1 -v
+
+  lint:
+    desc: Run golangci-lint (requires golangci-lint installed)
+    cmds:
+      - golangci-lint run
+    preconditions:
+      - sh: command -v golangci-lint
+        msg: 'golangci-lint not found; install from https://golangci-lint.run/welcome/install/'
+
+  check:
+    desc: Quick pre-commit check (vet + test)
+    deps: [vet, test]
+
+  build:
+    desc: Build envball for the host platform into ./bin/envball
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.BIN_NAME}} {{.PKG}}
+      - 'echo "built {{.BIN_DIR}}/{{.BIN_NAME}} (version={{.VERSION}}, commit={{.COMMIT}})"'
+    sources:
+      - '**/*.go'
+      - go.mod
+      - go.sum
+    generates:
+      - '{{.BIN_DIR}}/{{.BIN_NAME}}'
+
+  build:linux-amd64:
+    desc: Cross-build for linux/amd64 into ./bin/envball-linux-amd64
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOOS=linux GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.BIN_NAME}}-linux-amd64 {{.PKG}}
+
+  build:linux-arm64:
+    desc: Cross-build for linux/arm64 into ./bin/envball-linux-arm64
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOOS=linux GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.BIN_NAME}}-linux-arm64 {{.PKG}}
+
+  build:darwin-arm64:
+    desc: Cross-build for darwin/arm64 into ./bin/envball-darwin-arm64
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOOS=darwin GOARCH=arm64 go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.BIN_NAME}}-darwin-arm64 {{.PKG}}
+
+  build:darwin-amd64:
+    desc: Cross-build for darwin/amd64 into ./bin/envball-darwin-amd64
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOOS=darwin GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.BIN_NAME}}-darwin-amd64 {{.PKG}}
+
+  build:windows-amd64:
+    desc: Cross-build for windows/amd64 into ./bin/envball-windows-amd64.exe
+    cmds:
+      - mkdir -p {{.BIN_DIR}}
+      - GOOS=windows GOARCH=amd64 go build {{.BUILD_FLAGS}} -o {{.BIN_DIR}}/{{.BIN_NAME}}-windows-amd64.exe {{.PKG}}
+
+  build:all:
+    desc: Cross-build for every v0.1 target
+    deps:
+      - build:linux-amd64
+      - build:linux-arm64
+      - build:darwin-arm64
+      - build:darwin-amd64
+      - build:windows-amd64
+
+  install:
+    desc: 'Install envball into $GOBIN (or $GOPATH/bin)'
+    cmds:
+      - go install {{.BUILD_FLAGS}} {{.PKG}}
+
+  run:
+    desc: 'Run envball with arguments. Usage: task run -- <args>'
+    cmds:
+      - go run {{.PKG}} {{.CLI_ARGS}}
+
+  clean:
+    desc: Remove build outputs
+    cmds:
+      - rm -rf {{.BIN_DIR}}
+      - rm -f /tmp/envball-smoke/env.bin /tmp/envball-smoke/env.bin.token
+
+  smoke:
+    desc: End-to-end smoke test (init → build envball → build env.bin → decrypt-and-exec)
+    deps: [build]
+    vars:
+      SMOKE_DIR: /tmp/envball-smoke-{{.COMMIT}}
+    cmds:
+      - rm -rf {{.SMOKE_DIR}}
+      - mkdir -p {{.SMOKE_DIR}}
+      - cp {{.BIN_DIR}}/{{.BIN_NAME}} {{.SMOKE_DIR}}/envball
+      - |
+        cat > {{.SMOKE_DIR}}/.env <<'EOF'
+        DATABASE_URL=postgres://user:pw@localhost:5432/db
+        STRIPE_SECRET_KEY=sk_live_smoke_test_value
+        SIMPLE=hello
+        EOF
+      - cd {{.SMOKE_DIR}} && ./envball init >/dev/null
+      - cd {{.SMOKE_DIR}} && ./envball build -f .env -o env.bin
+      - cd {{.SMOKE_DIR}} && ./envball verify env.bin
+      - |
+        cd {{.SMOKE_DIR}} && got=$(./env.bin -- printenv DATABASE_URL)
+        expected="postgres://user:pw@localhost:5432/db"
+        if [ "$got" != "$expected" ]; then
+          echo "smoke: DATABASE_URL mismatch: got=$got want=$expected" >&2
+          exit 1
+        fi
+        echo "smoke: ok (env decrypted and exec'd cleanly)"
+      - rm -rf {{.SMOKE_DIR}}
+
+  ci:
+    desc: What CI runs (vet + test + build)
+    deps: [vet, test, build]
