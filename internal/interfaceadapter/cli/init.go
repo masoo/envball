@@ -43,7 +43,7 @@ func newInitCommand(d Deps) *cobra.Command {
 			} else {
 				fmt.Fprintf(cmd.OutOrStdout(), "envball: sample env already exists: %s (skipping)\n", out.SampleEnvPath)
 			}
-			fmt.Fprintln(cmd.OutOrStdout(), "envball: next step — fill in .env, then run: envball build -f .env -o env.bin")
+			fmt.Fprintln(cmd.OutOrStdout(), "envball: next step — fill in .env, then run: envball build -f .env -o env.ball")
 			return nil
 		},
 	}

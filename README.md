@@ -43,25 +43,25 @@ Without the token, the bundle cannot be decrypted.
 3. Build an encrypted runnable bundle:
 
    ```
-   ./bin/envball build -f .env -o env.bin
+   ./bin/envball build -f .env -o env.ball
    ```
 
-   This writes both `env.bin` (mode 0755) and `env.bin.token` (mode 0600). **Save the token in your password manager immediately** — losing it makes the binary unreadable.
+   This writes both `env.ball` (mode 0755) and `env.ball.token` (mode 0600). **Save the token in your password manager immediately** — losing it makes the binary unreadable.
 
 4. Verify metadata/signature (no token required):
 
    ```
-   ./bin/envball verify env.bin
+   ./bin/envball verify env.ball
    ```
 
 5. Run with the decrypted env injected into a child process:
 
    ```
-   ./env.bin -- env
-   ./env.bin -- bin/rails server
+   ./env.ball -- env
+   ./env.ball -- bin/rails server
    ```
 
-   With no `--token-file`, the runtime looks for `env.bin.token` next to the binary.
+   With no `--token-file`, the runtime looks for `env.ball.token` next to the binary.
 
 ## Token Resolution Order (runtime)
 
@@ -69,7 +69,7 @@ Token delivery is **file-only by design**. Environment-variable delivery (e.g. `
 
 When running an envball bundle, the token source is resolved in this order:
 
-1. `--token-file <path>` — explicit flag. The literal value `-` or `/dev/stdin` reads the token from standard input (useful for pipelines such as `pass show envball/prod | ./env.bin --token-file - -- cmd`).
+1. `--token-file <path>` — explicit flag. The literal value `-` or `/dev/stdin` reads the token from standard input (useful for pipelines such as `pass show envball/prod | ./env.ball --token-file - -- cmd`).
 2. `$CREDENTIALS_DIRECTORY/envball-token` — systemd credentials directory (set via `LoadCredential=` / `LoadCredentialEncrypted=`).
 3. `<executable>.token` — sibling token file next to the bundle binary.
 
@@ -133,7 +133,7 @@ Common tasks (via [Task](https://taskfile.dev)):
 - `task lint` — `golangci-lint run`
 - `task build` — build `./bin/envball` for the host platform
 - `task build:all` — cross-build every v0.1 target
-- `task smoke` — end-to-end: init → build envball → build env.bin → decrypt-and-exec
+- `task smoke` — end-to-end: init → build envball → build env.ball → decrypt-and-exec
 - `task ci` — what CI runs (`vet` + `test` + `build`)
 
 Direct equivalents:

@@ -125,10 +125,10 @@ tasks:
     desc: Remove build outputs
     cmds:
       - rm -rf {{.BIN_DIR}}
-      - rm -f /tmp/envball-smoke/env.bin /tmp/envball-smoke/env.bin.token
+      - rm -f /tmp/envball-smoke/env.ball /tmp/envball-smoke/env.ball.token
 
   smoke:
-    desc: End-to-end smoke test (init → build envball → build env.bin → decrypt-and-exec)
+    desc: End-to-end smoke test (init → build envball → build env.ball → decrypt-and-exec)
     deps: [build]
     vars:
       SMOKE_DIR: /tmp/envball-smoke-{{.COMMIT}}
@@ -143,10 +143,10 @@ tasks:
         SIMPLE=hello
         EOF
       - cd {{.SMOKE_DIR}} && ./envball init >/dev/null
-      - cd {{.SMOKE_DIR}} && ./envball build -f .env -o env.bin
-      - cd {{.SMOKE_DIR}} && ./envball verify env.bin
+      - cd {{.SMOKE_DIR}} && ./envball build -f .env -o env.ball
+      - cd {{.SMOKE_DIR}} && ./envball verify env.ball
       - |
-        cd {{.SMOKE_DIR}} && got=$(./env.bin -- printenv DATABASE_URL)
+        cd {{.SMOKE_DIR}} && got=$(./env.ball -- printenv DATABASE_URL)
         expected="postgres://user:pw@localhost:5432/db"
         if [ "$got" != "$expected" ]; then
           echo "smoke: DATABASE_URL mismatch: got=$got want=$expected" >&2

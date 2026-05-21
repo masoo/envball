@@ -134,7 +134,7 @@ func runtimeMain(body *bundle.Body) {
 
 // runtimeArgs captures the parsed flag state for runtime mode. We hand-
 // roll the parser instead of using cobra here so the user-facing
-// `env.bin -- <command>` invocation stays cleanly separated from cobra's
+// `env.ball -- <command>` invocation stays cleanly separated from cobra's
 // subcommand machinery, and so unknown flags after `--` get passed
 // verbatim to the child.
 type runtimeArgs struct {
@@ -182,7 +182,7 @@ func parseRuntimeArgs(argv []string) (runtimeArgs, error) {
 		default:
 			// First non-flag positional starts the child argv. We do
 			// not require `--`; this is a convenience for the common
-			// case of `env.bin bin/rails server`.
+			// case of `env.ball bin/rails server`.
 			out.childArgv = append(out.childArgv, argv[i:]...)
 			return out, nil
 		}
@@ -223,7 +223,7 @@ func loadOwnBody() (*bundle.Body, bool, error) {
 //
 //  1. --token-file <path>. The literal value "-" or "/dev/stdin" reads
 //     the token from os.Stdin (use for pipelines like
-//     `pass show envball/prod | env.bin --token-file - -- cmd`).
+//     `pass show envball/prod | env.ball --token-file - -- cmd`).
 //  2. $CREDENTIALS_DIRECTORY/envball-token, when systemd has placed a
 //     credential there via LoadCredential= / LoadCredentialEncrypted=.
 //  3. Sibling file: <executable>.token.
@@ -320,7 +320,7 @@ func printRuntimeHelp(w io.Writer) {
 	fmt.Fprintln(w, "Docker, Kubernetes, Cloud Run, ECS, and systemd recipes.")
 	fmt.Fprintln(w)
 	fmt.Fprintln(w, "Examples:")
-	fmt.Fprintln(w, "  ./env.bin -- bin/rails server")
-	fmt.Fprintln(w, "  pass show envball/prod | ./env.bin --token-file - -- node server.js")
-	fmt.Fprintln(w, "  ./env.bin --token-file /run/secrets/envball.token -- bin/web")
+	fmt.Fprintln(w, "  ./env.ball -- bin/rails server")
+	fmt.Fprintln(w, "  pass show envball/prod | ./env.ball --token-file - -- node server.js")
+	fmt.Fprintln(w, "  ./env.ball --token-file /run/secrets/envball.token -- bin/web")
 }

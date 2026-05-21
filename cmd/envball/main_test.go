@@ -60,7 +60,7 @@ func TestResolveTokenReadsCredentialsDirectory(t *testing.T) {
 
 func TestResolveTokenFallsBackToSiblingFile(t *testing.T) {
 	dir := t.TempDir()
-	sibling := filepath.Join(dir, "env.bin.token")
+	sibling := filepath.Join(dir, "env.ball.token")
 	want, s := mustToken(t)
 	if err := os.WriteFile(sibling, []byte(s), 0o600); err != nil {
 		t.Fatalf("write sibling file: %v", err)

@@ -43,7 +43,7 @@ func TestInitIgnoreFilesContainExpectedEntries(t *testing.T) {
 		t.Fatalf("read .gitignore: %v", err)
 	}
 	s := string(content)
-	required := []string{".env", ".env.local", "*.token", "env.bin"}
+	required := []string{".env", ".env.local", "*.token", "env.ball"}
 	for _, want := range required {
 		if !strings.Contains(s, want) {
 			t.Errorf(".gitignore missing %q\n%s", want, s)

@@ -46,7 +46,7 @@ func writeBundle(t *testing.T, signingKey []byte) string {
 	if err != nil {
 		t.Fatalf("Build: %v", err)
 	}
-	path := filepath.Join(t.TempDir(), "env.bin")
+	path := filepath.Join(t.TempDir(), "env.ball")
 	if err := os.WriteFile(path, out.BinaryBytes, 0o755); err != nil {
 		t.Fatalf("write bundle: %v", err)
 	}
@@ -110,7 +110,7 @@ func TestVerifyDetectsTamperedSignature(t *testing.T) {
 	if err != nil {
 		t.Fatalf("re-assemble: %v", err)
 	}
-	path := filepath.Join(t.TempDir(), "env.bin")
+	path := filepath.Join(t.TempDir(), "env.ball")
 	if err := os.WriteFile(path, bin, 0o755); err != nil {
 		t.Fatalf("write tampered bundle: %v", err)
 	}
@@ -161,7 +161,7 @@ func TestVerifyRejectsBundleWithBadVersion(t *testing.T) {
 	if err != nil {
 		t.Fatalf("AssembleBinary: %v", err)
 	}
-	path := filepath.Join(t.TempDir(), "env.bin")
+	path := filepath.Join(t.TempDir(), "env.ball")
 	if err := os.WriteFile(path, bin, 0o755); err != nil {
 		t.Fatalf("write: %v", err)
 	}

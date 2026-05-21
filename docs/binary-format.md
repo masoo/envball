@@ -184,7 +184,7 @@ without attempting decryption. This catches typos before they look like
 
 ### Token File Format
 
-When written to disk as a sibling of the binary (`env.bin.token` by
+When written to disk as a sibling of the binary (`env.ball.token` by
 default), the file content is:
 
     # envball-token v1

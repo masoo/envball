@@ -72,7 +72,7 @@ func newBuildCommand(d Deps) *cobra.Command {
 		},
 	}
 	cmd.Flags().StringSliceVarP(&envFiles, "env-file", "f", nil, "path to a .env file (repeatable; later files override earlier ones)")
-	cmd.Flags().StringVarP(&outputPath, "output", "o", "env.bin", "output executable path")
+	cmd.Flags().StringVarP(&outputPath, "output", "o", "env.ball", "output executable path")
 	cmd.Flags().StringVar(&tokenOutPath, "token-out", "", "where to write the token file (default: <output>.token)")
 	cmd.Flags().BoolVar(&tokenSilent, "silent", false, "suppress the post-build 'save the token' reminder")
 	cmd.Flags().StringVar(&targetOS, "target-os", runtime.GOOS, "target OS label embedded in metadata (default: host)")

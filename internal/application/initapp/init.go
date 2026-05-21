@@ -84,8 +84,8 @@ func defaultIgnoreEntries() []string {
 		"# envball decryption tokens",
 		"*.token",
 		"# envball built binaries (the encrypted self-extracting executable)",
-		"env.bin",
-		"env.bin.*",
+		"env.ball",
+		"env.ball.*",
 		"envball-run",
 		"envball-run.*",
 	}
@@ -106,7 +106,7 @@ func writeSampleEnvIfMissing(path string, overwrite bool) (bool, error) {
 }
 
 const sampleEnvContent = `# Sample env file for envball. Fill in real values, then build with:
-#   envball build -f .env -o env.bin
+#   envball build -f .env -o env.ball
 # The plaintext .env should NEVER be committed; the envball init step
 # adds it to .gitignore and the AI ignore files for you.
 

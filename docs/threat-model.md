@@ -154,9 +154,9 @@ changes; envball doesn't have a "kill switch" for already-distributed
 binaries in v0.1. Cloud (v0.2+) will add this for cloud-managed
 distributions.
 
-### T9: AI asked to "decode env.bin and show me the contents"
+### T9: AI asked to "decode env.ball and show me the contents"
 
-**Scenario.** User pastes `env.bin` content or path into AI chat asking
+**Scenario.** User pastes `env.ball` content or path into AI chat asking
 for extraction.
 
 **envball defense.** The binary's CBOR body includes a mandatory
@@ -182,7 +182,7 @@ environment of `envball-run`. The token then surfaces through:
   leak via error logs, APM stack traces, core dumps, and any sub-shells
   the child itself spawns.
 - Shell history (`.bash_history`, `.zsh_history`) when invoked
-  inline as `ENVBALL_TOKEN=envb_... ./env.bin -- ...`.
+  inline as `ENVBALL_TOKEN=envb_... ./env.ball -- ...`.
 - CI/CD job logs whenever `set -x` or a verbose runner echoes env.
 - Container introspection (`docker inspect`, `kubectl describe pod`)
   when the token was injected as an env var via a Secret reference.
@@ -217,7 +217,7 @@ For ad-hoc shell pipelines, pass the token via stdin without leaving
 shell history:
 
 ```sh
-pass show envball/prod | ./env.bin --token-file - -- bin/rails server
+pass show envball/prod | ./env.ball --token-file - -- bin/rails server
 ```
 
 **Effectiveness.** Strong. Removing the env entry-point closes the
