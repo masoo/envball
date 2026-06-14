@@ -30,6 +30,11 @@ go.work.sum
 # .env replacement is the point of envball; never commit one
 .env
 
+# envball bundle output and its decryption token.
+# The token is the secret and must NEVER be committed.
+env.ball
+*.token
+
 # Editor / IDE
 .vscode/
 .idea/
