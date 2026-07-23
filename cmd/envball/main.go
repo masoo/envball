@@ -203,7 +203,7 @@ func loadOwnBody() (*bundle.Body, bool, error) {
 	if err != nil {
 		return nil, false, fmt.Errorf("open own executable: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	stat, err := f.Stat()
 	if err != nil {
 		return nil, false, fmt.Errorf("stat own executable: %w", err)

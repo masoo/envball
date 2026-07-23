@@ -28,7 +28,7 @@ func (Reader) Read(path string) (*envset.EnvSet, error) {
 	if err != nil {
 		return nil, fmt.Errorf("envball/envfile: open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 
 	set := envset.New()
 	scanner := bufio.NewScanner(f)

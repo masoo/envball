@@ -151,7 +151,7 @@ func TestSuperviseRunsInNewProcessGroup(t *testing.T) {
 	if err != nil {
 		t.Fatalf("temp: %v", err)
 	}
-	tmp.Close()
+	_ = tmp.Close()
 	_, err = New().Supervise(
 		context.Background(),
 		[]string{"/bin/sh", "-c", "awk '{print $5}' /proc/$$/stat > " + tmp.Name()},

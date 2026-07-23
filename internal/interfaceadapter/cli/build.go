@@ -108,11 +108,11 @@ func writeBinary(path string, contents []byte) error {
 		return fmt.Errorf("envball build: write %s: %w", tmp, err)
 	}
 	if err := os.Chmod(tmp, 0o755); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("envball build: chmod %s: %w", tmp, err)
 	}
 	if err := os.Rename(tmp, path); err != nil {
-		os.Remove(tmp)
+		_ = os.Remove(tmp)
 		return fmt.Errorf("envball build: rename %s -> %s: %w", tmp, path, err)
 	}
 	return nil
@@ -127,7 +127,7 @@ func writeTokenFile(path, tokenString string) error {
 	if err != nil {
 		return fmt.Errorf("envball build: open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	if _, err := f.Write(content); err != nil {
 		return fmt.Errorf("envball build: write %s: %w", path, err)
 	}

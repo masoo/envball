@@ -1,0 +1,15 @@
+version: "2"
+
+# envball lint configuration.
+# Default linters (errcheck, govet, ineffassign, staticcheck, unused) stay on.
+# depguard for the DDD layering rules is a separate follow-up task.
+linters:
+  settings:
+    errcheck:
+      # CLI progress output goes to cmd.OutOrStdout(); a failed write there is
+      # not actionable and must not mask the command's real result. Ignore it
+      # by design. Never add file/network writers here — those errors matter.
+      exclude-functions:
+        - fmt.Fprint
+        - fmt.Fprintf
+        - fmt.Fprintln

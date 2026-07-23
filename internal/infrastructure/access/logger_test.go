@@ -164,7 +164,7 @@ func TestLogRunIsSafeForConcurrentCallers(t *testing.T) {
 	if err != nil {
 		t.Fatalf("open log: %v", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	raw, _ := io.ReadAll(f)
 	// Each entry should be a complete, well-formed JSON object on its
 	// own line. With a missing mutex some lines would collide.

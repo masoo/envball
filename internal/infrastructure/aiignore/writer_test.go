@@ -125,7 +125,7 @@ func TestEnsureEntriesPreservesMultipleEntriesOrder(t *testing.T) {
 	iFirst := strings.Index(s, "first")
 	iSecond := strings.Index(s, "second")
 	iThird := strings.Index(s, "third")
-	if !(iFirst >= 0 && iFirst < iSecond && iSecond < iThird) {
+	if iFirst < 0 || iFirst >= iSecond || iSecond >= iThird {
 		t.Errorf("entries not in caller-supplied order:\n%s", s)
 	}
 }

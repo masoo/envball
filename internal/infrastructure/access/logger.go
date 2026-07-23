@@ -50,7 +50,7 @@ func (l *FileLogger) LogRun(entry port.AccessEntry) error {
 	if err != nil {
 		return fmt.Errorf("envball/access: open log: %w", err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	rec := struct {
 		Timestamp string   `json:"ts"`
 		BinaryID  string   `json:"binary_id"`

@@ -114,20 +114,20 @@ func WriteBundle(path string, stub []byte, body []byte) error {
 	}
 	tmpName := tmp.Name()
 	if _, err := tmp.Write(buf.Bytes()); err != nil {
-		tmp.Close()
-		os.Remove(tmpName)
+		_ = tmp.Close()
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("envball/format: write temp: %w", err)
 	}
 	if err := tmp.Close(); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("envball/format: close temp: %w", err)
 	}
 	if err := os.Chmod(tmpName, 0o755); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("envball/format: chmod temp: %w", err)
 	}
 	if err := os.Rename(tmpName, path); err != nil {
-		os.Remove(tmpName)
+		_ = os.Remove(tmpName)
 		return fmt.Errorf("envball/format: rename to %s: %w", path, err)
 	}
 	return nil
@@ -142,7 +142,7 @@ func ReadBundleFromFile(path string) (*bundle.Body, error) {
 	if err != nil {
 		return nil, fmt.Errorf("envball/format: open %s: %w", path, err)
 	}
-	defer f.Close()
+	defer func() { _ = f.Close() }()
 	stat, err := f.Stat()
 	if err != nil {
 		return nil, fmt.Errorf("envball/format: stat %s: %w", path, err)

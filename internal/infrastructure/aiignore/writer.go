@@ -129,7 +129,6 @@ func blockBounds(content []byte) (int, int) {
 	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	pos := 0
 	beginPos := -1
-	endPos := -1
 	for scanner.Scan() {
 		line := scanner.Text()
 		lineLen := len(line) + 1 // account for newline stripped by Scanner
@@ -137,8 +136,7 @@ func blockBounds(content []byte) (int, int) {
 		case beginPos < 0 && strings.TrimSpace(line) == beginSentinel:
 			beginPos = pos
 		case beginPos >= 0 && strings.TrimSpace(line) == endSentinel:
-			endPos = pos + lineLen
-			return beginPos, endPos
+			return beginPos, pos + lineLen
 		}
 		pos += lineLen
 	}
