@@ -123,13 +123,40 @@ func writeTokenFile(path, tokenString string) error {
 		return fmt.Errorf("envball build: mkdir parent of %s: %w", path, err)
 	}
 	content := []byte(bundle.TokenFileHeader + tokenString + "\n")
-	f, err := os.OpenFile(path, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+
+	// Write to a fresh temp file in the same directory and rename it into
+	// place. Opening the destination directly with O_TRUNC would keep the
+	// mode of a pre-existing file (e.g. a 0644 copy) and would follow a
+	// symlink planted at path; rename replaces the directory entry itself,
+	// so neither can redirect or expose the token.
+	f, err := os.CreateTemp(filepath.Dir(path), "."+filepath.Base(path)+".tmp-*")
 	if err != nil {
-		return fmt.Errorf("envball build: open %s: %w", path, err)
+		return fmt.Errorf("envball build: create temp for %s: %w", path, err)
 	}
-	defer func() { _ = f.Close() }()
+	tmp := f.Name()
+	committed := false
+	defer func() {
+		_ = f.Close() // harmless os.ErrClosed after the explicit Close below
+		if !committed {
+			_ = os.Remove(tmp)
+		}
+	}()
+	// CreateTemp already uses 0600; Chmod makes the guarantee explicit.
+	if err := f.Chmod(0o600); err != nil {
+		return fmt.Errorf("envball build: chmod %s: %w", tmp, err)
+	}
 	if _, err := f.Write(content); err != nil {
-		return fmt.Errorf("envball build: write %s: %w", path, err)
+		return fmt.Errorf("envball build: write %s: %w", tmp, err)
 	}
+	if err := f.Sync(); err != nil {
+		return fmt.Errorf("envball build: sync %s: %w", tmp, err)
+	}
+	if err := f.Close(); err != nil {
+		return fmt.Errorf("envball build: close %s: %w", tmp, err)
+	}
+	if err := os.Rename(tmp, path); err != nil {
+		return fmt.Errorf("envball build: rename %s -> %s: %w", tmp, path, err)
+	}
+	committed = true
 	return nil
 }
