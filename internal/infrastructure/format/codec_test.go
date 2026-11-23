@@ -3,6 +3,7 @@ package format
 import (
 	"bytes"
 	"errors"
+	"math"
 	"os"
 	"path/filepath"
 	"reflect"
@@ -181,6 +182,25 @@ func TestReadBundleRejectsOutOfBoundsFooter(t *testing.T) {
 	_, err := ReadBundle(r, int64(r.Len()))
 	if !errors.Is(err, bundle.ErrBodyOutOfBounds) {
 		t.Fatalf("out-of-bounds footer should return ErrBodyOutOfBounds, got %v", err)
+	}
+}
+
+func TestReadBundleRejectsOverflowingFooter(t *testing.T) {
+	// Attacker-controlled uint64 fields that overflowed the old
+	// int64-addition bounds check and panicked in make()/ReadAt.
+	for _, f := range []bundle.Footer{
+		{BodyOffset: 0, BodyLength: math.MaxUint64},
+		{BodyOffset: math.MaxUint64 - (1 << 30) + 1, BodyLength: 1 << 30},
+		{BodyOffset: math.MaxUint64 - bundle.FooterSize + 1, BodyLength: 0},
+	} {
+		f.FormatVersion = bundle.FormatVersion
+		enc := f.Encode()
+		data := append(bytes.Repeat([]byte{0}, 64), enc[:]...)
+		r := bytes.NewReader(data)
+		_, err := ReadBundle(r, int64(r.Len()))
+		if !errors.Is(err, bundle.ErrBodyOutOfBounds) {
+			t.Errorf("footer %+v: got %v, want ErrBodyOutOfBounds", f, err)
+		}
 	}
 }
 

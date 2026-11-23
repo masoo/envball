@@ -20,7 +20,7 @@ func StripPayload(exe []byte) []byte {
 	if err != nil {
 		return exe
 	}
-	if int64(footer.BodyOffset)+int64(footer.BodyLength)+int64(FooterSize) > int64(len(exe)) {
+	if !footer.BodyFitsIn(int64(len(exe))) {
 		return exe
 	}
 	return exe[:footer.BodyOffset]

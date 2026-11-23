@@ -168,9 +168,11 @@ func ReadBundle(r io.ReaderAt, size int64) (*bundle.Body, error) {
 	if err != nil {
 		return nil, err
 	}
-	if int64(footer.BodyOffset)+int64(footer.BodyLength)+bundle.FooterSize > size {
+	if !footer.BodyFitsIn(size) {
 		return nil, bundle.ErrBodyOutOfBounds
 	}
+	// Both values are now <= size, so the int64 conversion below is safe
+	// and the allocation is bounded by the real file size.
 	bodyBytes := make([]byte, footer.BodyLength)
 	if _, err := r.ReadAt(bodyBytes, int64(footer.BodyOffset)); err != nil {
 		return nil, fmt.Errorf("envball/format: read body: %w", err)

@@ -66,6 +66,22 @@ func DecodeFooter(b []byte) (Footer, error) {
 	return f, nil
 }
 
+// BodyFitsIn reports whether the body region [BodyOffset,
+// BodyOffset+BodyLength) followed by the footer fits inside a file of
+// totalSize bytes.
+//
+// BodyOffset and BodyLength are attacker-controlled uint64 values, so the
+// check is done by subtraction in uint64 space: adding them (or casting
+// to int64 first) can wrap around and let a huge length slip past the
+// bound, which would then panic in make() or slice indexing.
+func (f Footer) BodyFitsIn(totalSize int64) bool {
+	if totalSize < FooterSize {
+		return false
+	}
+	avail := uint64(totalSize) - FooterSize
+	return f.BodyOffset <= avail && f.BodyLength <= avail-f.BodyOffset
+}
+
 // HasFooterMagic reports whether the trailing 32 bytes look like an
 // envball footer, without validating the format version or fields. Used
 // by the multiplex entrypoint to decide CLI vs runtime mode.
