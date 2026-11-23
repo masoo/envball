@@ -64,9 +64,6 @@ func TestReadHandlesExportPrefix(t *testing.T) {
 }
 
 func TestReadHandlesDoubleQuotedValues(t *testing.T) {
-	// \" inside double quotes is NOT supported by the current parser
-	// (the closing quote is located by raw byte search before escape
-	// processing). Tests exercise the documented escapes: \n \r \t \\.
 	p := writeFile(t, `MSG="hello world"`+"\n"+`ESC="line1\nline2\ttab\\back"`+"\n")
 	set, err := NewReader().Read(p)
 	if err != nil {
@@ -77,6 +74,51 @@ func TestReadHandlesDoubleQuotedValues(t *testing.T) {
 	}
 	if v, _ := set.Get("ESC"); v != "line1\nline2\ttab\\back" {
 		t.Errorf("ESC = %q", v)
+	}
+}
+
+func TestReadDoubleQuoteEscapedQuoteIsNotTerminator(t *testing.T) {
+	p := writeFile(t, `JWT="ab\"cd\"ef"`+"\n"+`BS="a\\"`+"\n"+`C="v"  # note`+"\n")
+	set, err := NewReader().Read(p)
+	if err != nil {
+		t.Fatalf("Read: %v", err)
+	}
+	if v, _ := set.Get("JWT"); v != `ab"cd"ef` {
+		t.Errorf("JWT = %q, want %q", v, `ab"cd"ef`)
+	}
+	if v, _ := set.Get("BS"); v != `a\` {
+		t.Errorf("BS = %q, want %q", v, `a\`)
+	}
+	if v, _ := set.Get("C"); v != "v" {
+		t.Errorf("C = %q, want %q", v, "v")
+	}
+}
+
+func TestReadRejectsTextAfterClosingQuote(t *testing.T) {
+	for _, line := range []string{
+		`K="abc"def`,
+		`K='it's'`,
+		`K="abc" def`,
+	} {
+		p := writeFile(t, line+"\n")
+		_, err := NewReader().Read(p)
+		if err == nil {
+			t.Errorf("%s: expected error, got nil", line)
+			continue
+		}
+		if !strings.Contains(err.Error(), ":1:") {
+			t.Errorf("%s: error should carry line number: %v", line, err)
+		}
+		if strings.Contains(err.Error(), "abc") || strings.Contains(err.Error(), "it's") {
+			t.Errorf("%s: error must not echo the value: %v", line, err)
+		}
+	}
+}
+
+func TestReadEscapedQuoteAtEndIsUnclosed(t *testing.T) {
+	p := writeFile(t, `K="abc\"`+"\n")
+	if _, err := NewReader().Read(p); err == nil {
+		t.Fatalf(`K="abc\" should be an unclosed quote error`)
 	}
 }
 

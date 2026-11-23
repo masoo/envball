@@ -58,6 +58,8 @@ func (Reader) Read(path string) (*envset.EnvSet, error) {
 var (
 	errNoEquals      = errors.New("missing '=' in env line")
 	errUnclosedQuote = errors.New("unclosed quote in env value")
+	// Message deliberately omits the line content: it may be a secret.
+	errTrailingAfterQuote = errors.New("unexpected characters after closing quote (escape inner quotes, or use the other quote style)")
 )
 
 func parseLine(line string) (string, string, error) {
@@ -83,17 +85,74 @@ func parseLine(line string) (string, string, error) {
 		return name, raw, nil
 	}
 
-	quote := raw[0]
-	rest := raw[1:]
-	end := strings.IndexByte(rest, quote)
-	if end < 0 {
+	var (
+		value    string
+		trailing string
+		ok       bool
+	)
+	if raw[0] == '"' {
+		value, trailing, ok = scanDoubleQuoted(raw[1:])
+	} else {
+		value, trailing, ok = scanSingleQuoted(raw[1:])
+	}
+	if !ok {
 		return "", "", errUnclosedQuote
 	}
-	value := rest[:end]
-	if quote == '"' {
-		value = unescapeDouble(value)
+	// Anything after the closing quote other than whitespace or a comment
+	// means the quoting is not what the author intended (e.g. KEY='it's').
+	// Silently dropping it would truncate a secret, so reject the line.
+	trailing = strings.TrimLeft(trailing, " \t")
+	if trailing != "" && !strings.HasPrefix(trailing, "#") {
+		return "", "", errTrailingAfterQuote
 	}
 	return name, value, nil
+}
+
+// scanSingleQuoted returns the literal text up to the next single quote
+// and whatever follows it. Single quotes have no escapes.
+func scanSingleQuoted(s string) (value, trailing string, ok bool) {
+	end := strings.IndexByte(s, '\'')
+	if end < 0 {
+		return "", "", false
+	}
+	return s[:end], s[end+1:], true
+}
+
+// scanDoubleQuoted interprets escapes while searching for the closing
+// double quote, so an escaped \" is part of the value rather than the
+// terminator. Recognised escapes are the ones shells agree on (\n, \r,
+// \t, \\, \"); unknown escapes pass through literally so the parser never
+// silently drops bytes.
+func scanDoubleQuoted(s string) (value, trailing string, ok bool) {
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case c == '"':
+			return b.String(), s[i+1:], true
+		case c == '\\' && i+1 < len(s):
+			i++
+			switch s[i] {
+			case 'n':
+				b.WriteByte('\n')
+			case 'r':
+				b.WriteByte('\r')
+			case 't':
+				b.WriteByte('\t')
+			case '\\':
+				b.WriteByte('\\')
+			case '"':
+				b.WriteByte('"')
+			default:
+				b.WriteByte('\\')
+				b.WriteByte(s[i])
+			}
+		default:
+			b.WriteByte(c)
+		}
+	}
+	return "", "", false
 }
 
 func startsWithQuote(s string) bool {
@@ -101,36 +160,4 @@ func startsWithQuote(s string) bool {
 		return false
 	}
 	return s[0] == '"' || s[0] == '\''
-}
-
-// unescapeDouble interprets the standard double-quote escapes shells
-// agree on (\n, \r, \t, \\, \"). Unknown escapes pass through literally
-// so the parser never silently drops bytes.
-func unescapeDouble(s string) string {
-	var b strings.Builder
-	b.Grow(len(s))
-	for i := 0; i < len(s); i++ {
-		c := s[i]
-		if c != '\\' || i+1 >= len(s) {
-			b.WriteByte(c)
-			continue
-		}
-		i++
-		switch s[i] {
-		case 'n':
-			b.WriteByte('\n')
-		case 'r':
-			b.WriteByte('\r')
-		case 't':
-			b.WriteByte('\t')
-		case '\\':
-			b.WriteByte('\\')
-		case '"':
-			b.WriteByte('"')
-		default:
-			b.WriteByte('\\')
-			b.WriteByte(s[i])
-		}
-	}
-	return b.String()
 }
