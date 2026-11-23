@@ -170,36 +170,67 @@ func TestSuperviseRunsInNewProcessGroup(t *testing.T) {
 	}
 }
 
-func TestExitCodeFromMapsNormalExit(t *testing.T) {
-	cmd := exec.Command("/bin/sh", "-c", "exit 13")
-	err := cmd.Run()
-	if got := exitCodeFrom(cmd, err); got != 13 {
+// TestSuperviseExitCodeIsStableUnderRepetition is the regression test
+// for the cmd.Wait vs waitpid(-1) race: the reaper used to win sometimes
+// and the exit code collapsed to 1. Repeat enough to make that visible.
+func TestSuperviseExitCodeIsStableUnderRepetition(t *testing.T) {
+	for i := 0; i < 50; i++ {
+		code, err := New().Supervise(context.Background(), []string{"/bin/sh", "-c", "exit 42"}, os.Environ())
+		if err != nil {
+			t.Fatalf("iteration %d: Supervise: %v", i, err)
+		}
+		if code != 42 {
+			t.Fatalf("iteration %d: exit code = %d, want 42", i, code)
+		}
+	}
+}
+
+// A child that leaves a short-lived background grandchild behind must
+// still report its own exit code, not the grandchild's.
+func TestSuperviseReportsDirectChildNotGrandchild(t *testing.T) {
+	code, err := New().Supervise(context.Background(), []string{"/bin/sh", "-c", "(exit 9) & exit 3"}, os.Environ())
+	if err != nil {
+		t.Fatalf("Supervise: %v", err)
+	}
+	if code != 3 {
+		t.Errorf("exit code = %d, want 3 (direct child)", code)
+	}
+}
+
+func waitStatusOf(t *testing.T, script string) syscall.WaitStatus {
+	t.Helper()
+	cmd := exec.Command("/bin/sh", "-c", script)
+	_ = cmd.Run()
+	ws, ok := cmd.ProcessState.Sys().(syscall.WaitStatus)
+	if !ok {
+		t.Fatalf("no WaitStatus for %q", script)
+	}
+	return ws
+}
+
+func TestExitCodeFromStatusMapsNormalExit(t *testing.T) {
+	if got := exitCodeFromStatus(waitStatusOf(t, "exit 13")); got != 13 {
 		t.Errorf("exit code = %d, want 13", got)
 	}
 }
 
-func TestExitCodeFromMapsSignal(t *testing.T) {
-	cmd := exec.Command("/bin/sh", "-c", "kill -INT $$")
-	err := cmd.Run()
+func TestExitCodeFromStatusMapsSignal(t *testing.T) {
 	want := 128 + int(syscall.SIGINT)
-	if got := exitCodeFrom(cmd, err); got != want {
+	if got := exitCodeFromStatus(waitStatusOf(t, "kill -INT $$")); got != want {
 		t.Errorf("signal exit code = %d, want %d", got, want)
 	}
 }
 
-func TestExitCodeFromNilErrorReturnsZero(t *testing.T) {
-	cmd := exec.Command("/bin/true")
-	if err := cmd.Run(); err != nil {
-		t.Fatalf("/bin/true: %v", err)
-	}
-	if got := exitCodeFrom(cmd, nil); got != 0 {
+func TestExitCodeFromStatusZero(t *testing.T) {
+	if got := exitCodeFromStatus(waitStatusOf(t, "exit 0")); got != 0 {
 		t.Errorf("got %d, want 0", got)
 	}
 }
 
-func TestReapZombiesIsSafeWhenNoChildren(t *testing.T) {
-	// Just must not panic / error out — no observable side effect.
-	reapZombies()
+func TestReapChildrenIsSafeWhenNoChildren(t *testing.T) {
+	if _, done := reapChildren(-12345); done {
+		t.Errorf("reapChildren reported done with no children")
+	}
 }
 
 func syscallGetpgid(t *testing.T, pid int) int {
