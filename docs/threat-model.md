@@ -55,10 +55,23 @@ We do NOT defend against:
 '.env*'` during postinstall and exfiltrates contents.
 
 **envball defense.** No `.env` file exists on disk. The encrypted binary
-is opaque without the token. The token, by default, lives in OS keychain
-(not in the project directory).
+is opaque without the token.
 
-**Effectiveness.** Strong. envball eliminates the file-scan attack vector.
+**v0.1 token storage.** By default `envball build` writes the token to
+`<output>.token` next to the binary (e.g. `env.ball.token`), mode
+`0600`, with the AI-instruction header, and `envball init` adds it to
+`.gitignore` / `.aiignore` / `.cursorignore` / `.continueignore`. Those
+controls stop accidental commits and compliant AI tools, but **not**
+code running as the developer's OS user: a malicious package that
+searches for `*.token` next to `env.ball` gets both halves. Keep the
+token out of the project tree (`--token-out` to a path outside it, or a
+password manager piped via `--token-file -`) where that matters.
+Default storage outside the project (OS keychain or a per-user token
+directory) is planned for v0.2+.
+
+**Effectiveness.** Strong against scans for `.env` files. Weak against
+a same-user scan for the token under the v0.1 default layout; strong
+when the token is kept outside the scanned tree.
 
 ### T2: AI coding assistant reads project files into LLM context
 
@@ -71,8 +84,8 @@ contains opaque bytes the AI cannot decrypt. `envball init` generates
 `.aiignore`, `.cursorignore`, and `.continueignore` entries that mark
 binary and token files as AI-excluded.
 
-**Effectiveness.** Strong for the binary. Token file (if stored on disk)
-includes an AI-instruction header advising compliant assistants to
+**Effectiveness.** Strong for the binary. The token file (on disk next to
+the binary by default in v0.1) includes an AI-instruction header advising compliant assistants to
 refuse to share or transmit its contents.
 
 ### T3: AI agent executes shell commands and extracts env
@@ -85,11 +98,15 @@ refuse to share or transmit its contents.
 - `envball-run` has no env-dump mode. The agent must write an explicit
   exfiltration child command (higher friction, more obvious).
 - Every execution is logged to `~/.envball/access.log` for post-incident
-  detection.
-- macOS users can require Touch ID on keychain access (opt-in), which
-  AI agents cannot satisfy.
-- `--confirm` mode requires interactive TTY approval before decryption
-  (v0.1).
+  detection. The home directory is resolved from the account database,
+  not `$HOME`, so overriding or unsetting `HOME` does not move or drop
+  the record. Logging is best-effort, not fail-closed (read-only and
+  HOME-less containers must keep working): when the record cannot be
+  written, `envball-run` prints a warning on stderr and continues. A
+  same-user attacker can still delete the log afterwards (see R1).
+- Planned (v0.2+, not in v0.1): `--confirm` mode requiring interactive
+  TTY approval before decryption, and keychain-backed tokens with
+  macOS Touch ID gating, which AI agents cannot satisfy.
 
 **Effectiveness.** Partial. A determined AI agent with shell access can
 exfiltrate; envball raises the bar from "read a file" to "write and
@@ -122,22 +139,26 @@ header so pre-commit hooks can recognize and refuse to commit them.
 **Scenario.** Developer pastes `.env` contents into Slack to onboard a
 new teammate.
 
-**envball defense.** No `.env` to paste. Onboarding flow is "import this
-token to your keychain" — a single short string, not 50 lines of secrets.
+**envball defense.** No `.env` to paste. Onboarding flow is "fetch this
+token from the team password manager" — a single short string, not 50
+lines of secrets.
 
 **Effectiveness.** Strong for the bulk-leak case. The token is one short
-string; rotation is one command.
+string; rotation in v0.1 means rebuilding with a new token (see R4).
 
 ### T7: Disk theft / unencrypted laptop
 
 **Scenario.** Laptop stolen at a cafe; disk is readable.
 
-**envball defense.** Binary alone is encrypted; token in OS keychain is
-protected by the OS user password (and on macOS, optionally Touch ID).
+**envball defense.** Binary alone is encrypted. In v0.1 the token is a
+`0600` file, which offers no protection against someone reading the
+raw disk; if it sits next to the binary on the stolen disk, both halves
+are exposed. (Keychain-backed storage protected by the OS user password
+is planned for v0.2+.)
 
-**Effectiveness.** Moderate. Strength depends on OS keychain protection,
-which varies. Full-disk encryption (FileVault, BitLocker) is recommended
-alongside.
+**Effectiveness.** Weak on its own in v0.1. Full-disk encryption
+(FileVault, BitLocker, LUKS) is required for this threat, and keeping
+the token in a password manager rather than on disk helps further.
 
 ### T8: Departing employee retains artifacts
 
@@ -224,7 +245,8 @@ pass show envball/prod | ./env.ball --token-file - -- bin/rails server
 process-visibility, child-inheritance, log-leak, and history-leak
 vectors entirely. Residual risk reduces to "an attacker who can read
 the token file" — which is the same surface defended by file
-permissions, `.aiignore` markers, and the keychain workflow.
+permissions and `.aiignore` markers (see T1 for the limits of the v0.1
+default token location).
 
 ## Residual Risks (Honest Acknowledgment)
 
@@ -236,8 +258,8 @@ host-level compromise. The access log helps post-incident detection
 but does not prevent.
 
 **Mitigation.** OS-level controls (SELinux, AppArmor, macOS TCC,
-EDR/XDR products), least-privilege development environments, and
-keychain protection requiring Touch ID / password.
+EDR/XDR products) and least-privilege development environments.
+Keychain protection requiring Touch ID / password is planned for v0.2+.
 
 ### R2: AI agents with shell access
 
@@ -246,8 +268,8 @@ from invoking `envball-run` if the user has granted shell access.
 Users should restrict AI agent shell capabilities for projects
 containing production envball binaries.
 
-**Mitigation.** `--confirm` interactive mode for sensitive runs (v0.1);
-future MFA-style runtime gating (v0.2+).
+**Mitigation.** Planned for v0.2+: `--confirm` interactive mode for
+sensitive runs and MFA-style runtime gating. Not available in v0.1.
 
 ### R3: Token loss is unrecoverable
 
@@ -266,9 +288,10 @@ Unlike runtime-fetching tools (Doppler, Infisical), envball cannot
 hot-swap secrets. Rotation requires building a new binary and
 redeploying.
 
-**Mitigation.** Tooling for rotation is provided (`envball rotate`).
-Multi-key grace period support (v0.2+) will enable rolling rotation
-without service interruption.
+**Mitigation.** In v0.1, rotate by running `envball build` again (a new
+token is generated per build) and redeploying. Dedicated rotation
+tooling (`envball rotate`) and multi-key grace period support are
+planned for v0.2+.
 
 ### R5: Windows signal handling is limited
 
@@ -308,7 +331,7 @@ that an envball release was built from public source.
 
 | Threat                                 | `.env` file | dotenvx       | Doppler      | envball       |
 |----------------------------------------|-------------|---------------|--------------|---------------|
-| Malicious dep scans for .env (T1)      | ❌ Exposed  | ⚠️ File exists | ✅ No file   | ✅ No file    |
+| Malicious dep scans for .env (T1)      | ❌ Exposed  | ⚠️ File exists | ✅ No file   | ✅ No .env (⚠️ token beside binary by default in v0.1) |
 | AI tree walks project (T2)             | ❌ Exposed  | ⚠️ File readable | ✅ No file | ✅ No file    |
 | AI agent shell access (T3)             | ❌ `cat`    | ⚠️ `run -- env` | ⚠️ `run -- env` | ⚠️ Requires exfil cmd |
 | AI autocomplete leak (T4)              | ❌ Trains   | ⚠️ Partial    | ✅ No source | ✅ No source  |
