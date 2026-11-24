@@ -2,8 +2,10 @@ package access
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"os"
+	"os/user"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -14,7 +16,7 @@ import (
 )
 
 // newAtPath returns a logger writing to an arbitrary path. The production
-// New() resolves $HOME implicitly; in tests we want full control over
+// New() resolves the home directory implicitly; in tests we want full control over
 // where the log lands.
 func newAtPath(path string) *FileLogger {
 	return &FileLogger{path: path}
@@ -136,10 +138,37 @@ func TestLogRunCreatesParentDirWithRestrictivePerm(t *testing.T) {
 	}
 }
 
-func TestLogRunWithEmptyPathIsNoOp(t *testing.T) {
-	l := &FileLogger{} // no path resolved (e.g. UserHomeDir failed)
-	if err := l.LogRun(port.AccessEntry{Timestamp: time.Now().UTC()}); err != nil {
-		t.Errorf("LogRun on empty-path logger should no-op without error, got %v", err)
+func TestLogRunWithEmptyPathReturnsError(t *testing.T) {
+	l := &FileLogger{} // no home directory could be resolved
+	err := l.LogRun(port.AccessEntry{Timestamp: time.Now().UTC()})
+	if !errors.Is(err, ErrNoHomeDir) {
+		t.Errorf("LogRun on empty-path logger = %v, want ErrNoHomeDir (must not be silent)", err)
+	}
+}
+
+func TestNewIgnoresCallerControlledHOME(t *testing.T) {
+	u, err := user.Current()
+	if err != nil || u.HomeDir == "" {
+		t.Skip("no account database entry for the current user")
+	}
+	fake := t.TempDir()
+	t.Setenv("HOME", fake)
+	t.Setenv("USERPROFILE", fake)
+	l := New()
+	if want := filepath.Join(u.HomeDir, ".envball", "access.log"); l.path != want {
+		t.Errorf("New().path = %q, want %q (must not follow $HOME)", l.path, want)
+	}
+}
+
+func TestNewWithoutHOMEStillResolvesFromAccount(t *testing.T) {
+	u, err := user.Current()
+	if err != nil || u.HomeDir == "" {
+		t.Skip("no account database entry for the current user")
+	}
+	t.Setenv("HOME", "")
+	t.Setenv("USERPROFILE", "")
+	if l := New(); l.path == "" {
+		t.Errorf("New() with empty HOME resolved no path; `env -u HOME` would bypass the log")
 	}
 }
 

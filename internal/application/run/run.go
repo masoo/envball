@@ -89,14 +89,19 @@ func (svc *Service) Run(ctx context.Context, in Input) (*Output, error) {
 
 	envSlice := envMapToSlice(mergeWithCurrentEnv(envMap))
 
-	_ = svc.access.LogRun(port.AccessEntry{
+	// A failed access-log write must not block the run (read-only or
+	// HOME-less containers are a first-class target), but it must not be
+	// silent either: an unrecorded run leaves a visible warning.
+	if err := svc.access.LogRun(port.AccessEntry{
 		Timestamp: svc.clock.Now(),
 		BinaryID:  binaryIDString(in.Body.BinaryID),
 		Cwd:       cwdOrEmpty(),
 		ChildArgv: in.ChildArgv,
 		ParentPID: os.Getppid(),
 		Mode:      mode.String(),
-	})
+	}); err != nil {
+		fmt.Fprintf(os.Stderr, "envball: warning: this run was not recorded in the access log (%v); continuing\n", err)
+	}
 
 	switch mode {
 	case execution.ModeExecReplace:
